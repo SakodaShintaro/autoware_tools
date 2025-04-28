@@ -26,7 +26,7 @@ LateralErrorPublisher::LateralErrorPublisher(const rclcpp::NodeOptions & node_op
     declare_parameter("yaw_threshold_to_search_closest", M_PI / 4.0);
 
   /* Publishers and Subscribers */
-  sub_trajectory_ = create_subscription<autoware_auto_planning_msgs::msg::Trajectory>(
+  sub_trajectory_ = create_subscription<autoware_planning_msgs::msg::Trajectory>(
     "~/input/reference_trajectory", rclcpp::QoS{1},
     std::bind(&LateralErrorPublisher::onTrajectory, this, _1));
   sub_vehicle_pose_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
@@ -35,16 +35,17 @@ LateralErrorPublisher::LateralErrorPublisher(const rclcpp::NodeOptions & node_op
   sub_ground_truth_pose_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "~/input/ground_truth_pose_with_covariance", rclcpp::QoS{1},
     std::bind(&LateralErrorPublisher::onGroundTruthPose, this, _1));
-  pub_control_lateral_error_ =
-    create_publisher<tier4_debug_msgs::msg::Float32Stamped>("~/control_lateral_error", 1);
+  pub_control_lateral_error_ = create_publisher<autoware_internal_debug_msgs::msg::Float32Stamped>(
+    "~/control_lateral_error", 1);
   pub_localization_lateral_error_ =
-    create_publisher<tier4_debug_msgs::msg::Float32Stamped>("~/localization_lateral_error", 1);
+    create_publisher<autoware_internal_debug_msgs::msg::Float32Stamped>(
+      "~/localization_lateral_error", 1);
   pub_lateral_error_ =
-    create_publisher<tier4_debug_msgs::msg::Float32Stamped>("~/lateral_error", 1);
+    create_publisher<autoware_internal_debug_msgs::msg::Float32Stamped>("~/lateral_error", 1);
 }
 
 void LateralErrorPublisher::onTrajectory(
-  const autoware_auto_planning_msgs::msg::Trajectory::SharedPtr msg)
+  const autoware_planning_msgs::msg::Trajectory::SharedPtr msg)
 {
   current_trajectory_ptr_ = msg;
 }
@@ -74,7 +75,7 @@ void LateralErrorPublisher::onGroundTruthPose(
   }
 
   // Search closest trajectory point with vehicle pose
-  const auto closest_index = motion_utils::findNearestIndex(
+  const auto closest_index = autoware::motion_utils::findNearestIndex(
     current_trajectory_ptr_->points, current_vehicle_pose_ptr_->pose.pose,
     std::numeric_limits<double>::max(), yaw_threshold_to_search_closest_);
   if (!closest_index) {
@@ -131,17 +132,17 @@ void LateralErrorPublisher::onGroundTruthPose(
   RCLCPP_DEBUG(this->get_logger(), "localization_error: %f", lateral_error);
 
   // Publish lateral errors
-  tier4_debug_msgs::msg::Float32Stamped control_msg;
+  autoware_internal_debug_msgs::msg::Float32Stamped control_msg;
   control_msg.stamp = this->now();
   control_msg.data = static_cast<float>(control_lateral_error);
   pub_control_lateral_error_->publish(control_msg);
 
-  tier4_debug_msgs::msg::Float32Stamped localization_msg;
+  autoware_internal_debug_msgs::msg::Float32Stamped localization_msg;
   localization_msg.stamp = this->now();
   localization_msg.data = static_cast<float>(localization_lateral_error);
   pub_localization_lateral_error_->publish(localization_msg);
 
-  tier4_debug_msgs::msg::Float32Stamped sum_msg;
+  autoware_internal_debug_msgs::msg::Float32Stamped sum_msg;
   sum_msg.stamp = this->now();
   sum_msg.data = static_cast<float>(lateral_error);
   pub_lateral_error_->publish(sum_msg);

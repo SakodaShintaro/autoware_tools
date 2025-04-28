@@ -43,7 +43,7 @@ in Global code
 ```lua
 behavior_path = '/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id/debug_info'
 behavior_velocity = '/planning/scenario_planning/lane_driving/behavior_planning/path/debug_info'
-motion_avoid = '/planning/scenario_planning/lane_driving/motion_planning/obstacle_avoidance_planner/trajectory/debug_info'
+motion_avoid = '/planning/scenario_planning/lane_driving/motion_planning/path_optimizer/trajectory/debug_info'
 motion_smoother_latacc = '/planning/scenario_planning/motion_velocity_smoother/debug/trajectory_lateral_acc_filtered/debug_info'
 motion_smoother = '/planning/scenario_planning/trajectory/debug_info'
 ```
@@ -89,8 +89,8 @@ function PlotValue(name, path, timestamp, value)
   new_series = ScatterXY.new(name)
   index = 0
   while(true) do
-    series_k = TimeseriesView.find( string.format( "%s/"..value..".%d", path, index) )
-    series_s = TimeseriesView.find( string.format( "%s/arclength.%d", path, index) )
+    series_k = TimeseriesView.find( string.format( "%s/"..value.."[%d]", path, index) )
+    series_s = TimeseriesView.find( string.format( "%s/arclength[%d]", path, index) )
     series_size = TimeseriesView.find( string.format( "%s/size", path) )
 
     if series_k == nil or series_s == nil then break end
@@ -193,8 +193,28 @@ PlotCurrentVelocity('localization_kinematic_state', '/localization/kinematic_sta
 
 This script can overlay the perception results from the rosbag on the planning simulator synchronized with the simulator's ego pose.
 
-In detail, the ego pose in the rosbag which is closest to the current ego pose in the simulator is calculated.
-The perception results at the timestamp of the closest ego pose is extracted, and published.
+### How it works
+
+Whenever the ego's position changes, a chronological `reproduce_sequence` queue is generated based on its position with a search radius (default to 2 m).
+If the queue is empty, the nearest odom message in the rosbag is added to the queue.
+When publishing perception messages, the first element in the `reproduce_sequence` is popped and published.
+
+This design results in the following behavior:
+
+- When ego stops, the perception messages are published in chronological order until queue is empty.
+- When the ego moves, a perception message close to ego's position is published.
+
+### Available Options
+
+- `-b`, `--bag`: Rosbag file path (required)
+- `-d`, `--detected-object`: Publish detected objects
+- `-t`, `--tracked-object`: Publish tracked objects
+- `-r`, `--search-radius`: Set the search radius in meters (default: 1.5m). If set to 0, always publishes the nearest message
+- `-c`, `--reproduce-cool-down`: Set the cool down time in seconds (default: 80.0s)
+- `-p`, `--pub-route`: Initialize localization and publish a route based on poses from the rosbag
+- `-n`, `--noise`: Apply perception noise to objects when publishing repeated messages (default: True)
+- `-f`, `--rosbag-format`: Specify rosbag data format (default: "db3")
+- `-v`, `--verbose`: Output debug data
 
 ### How to use
 
@@ -214,6 +234,18 @@ ros2 run planning_debug_tools perception_reproducer.py -b <dir-to-bag-files>
 ```
 
 Instead of publishing predicted objects, you can publish detected/tracked objects by designating `-d` or `-t`, respectively.
+
+The `--pub-route` option enables automatic route generation based on the rosbag data. When enabled, the script:
+
+1. Extracts the initial and goal poses from the beginning and end of the rosbag file
+2. Initializes the localization system with the initial pose
+3. Generates and publishes a route to the goal pose
+
+Example usage with route publication:
+
+```bash
+ros2 run planning_debug_tools perception_reproducer.py -b <bag-file> -p
+```
 
 ## Perception replayer
 

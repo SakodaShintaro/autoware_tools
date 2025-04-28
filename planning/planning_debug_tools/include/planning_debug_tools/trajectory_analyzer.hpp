@@ -15,17 +15,17 @@
 #ifndef PLANNING_DEBUG_TOOLS__TRAJECTORY_ANALYZER_HPP_
 #define PLANNING_DEBUG_TOOLS__TRAJECTORY_ANALYZER_HPP_
 
-#include "motion_utils/trajectory/trajectory.hpp"
+#include "autoware/motion_utils/trajectory/trajectory.hpp"
+#include "autoware/universe_utils/geometry/geometry.hpp"
 #include "planning_debug_tools/msg/trajectory_debug_info.hpp"
 #include "planning_debug_tools/util.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "tier4_autoware_utils/geometry/geometry.hpp"
 
-#include "autoware_auto_planning_msgs/msg/path.hpp"
-#include "autoware_auto_planning_msgs/msg/path_with_lane_id.hpp"
-#include "autoware_auto_planning_msgs/msg/trajectory.hpp"
+#include "autoware_internal_debug_msgs/msg/float64_multi_array_stamped.hpp"
+#include "autoware_internal_planning_msgs/msg/path_with_lane_id.hpp"
+#include "autoware_planning_msgs/msg/path.hpp"
+#include "autoware_planning_msgs/msg/trajectory.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "tier4_debug_msgs/msg/float64_multi_array_stamped.hpp"
 
 #include <iostream>
 #include <map>
@@ -35,9 +35,9 @@
 
 namespace planning_debug_tools
 {
-using autoware_auto_planning_msgs::msg::Path;
-using autoware_auto_planning_msgs::msg::PathWithLaneId;
-using autoware_auto_planning_msgs::msg::Trajectory;
+using autoware_internal_planning_msgs::msg::PathWithLaneId;
+using autoware_planning_msgs::msg::Path;
+using autoware_planning_msgs::msg::Trajectory;
 using nav_msgs::msg::Odometry;
 using planning_debug_tools::msg::TrajectoryDebugInfo;
 
@@ -86,8 +86,8 @@ public:
     TrajectoryDebugInfo data;
     data.stamp = node_->now();
     data.size = points.size();
-    data.curvature = motion_utils::calcCurvature(points);
-    const auto arclength_offset = motion_utils::calcSignedArcLength(points, 0, ego_p);
+    data.curvature = autoware::motion_utils::calcCurvature(points);
+    const auto arclength_offset = autoware::motion_utils::calcSignedArcLength(points, 0, ego_p);
     data.arclength = calcPathArcLengthArray(points, -arclength_offset);
     data.velocity = getVelocityArray(points);
     data.acceleration = getAccelerationArray(points);

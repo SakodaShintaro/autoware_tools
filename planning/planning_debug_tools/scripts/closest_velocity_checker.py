@@ -16,12 +16,15 @@
 
 import time
 
-from autoware_auto_control_msgs.msg import AckermannControlCommand
-from autoware_auto_planning_msgs.msg import Path
-from autoware_auto_planning_msgs.msg import PathWithLaneId
-from autoware_auto_planning_msgs.msg import Trajectory
-from autoware_auto_vehicle_msgs.msg import Engage
-from autoware_auto_vehicle_msgs.msg import VelocityReport
+from autoware_adapi_v1_msgs.msg import OperationModeState
+from autoware_control_msgs.msg import Control as AckermannControlCommand
+from autoware_internal_debug_msgs.msg import Float32MultiArrayStamped
+from autoware_internal_debug_msgs.msg import Float32Stamped
+from autoware_internal_planning_msgs.msg import PathWithLaneId
+from autoware_internal_planning_msgs.msg import VelocityLimit
+from autoware_planning_msgs.msg import Path
+from autoware_planning_msgs.msg import Trajectory
+from autoware_vehicle_msgs.msg import VelocityReport
 from geometry_msgs.msg import Pose
 from nav_msgs.msg import Odometry
 import numpy as np
@@ -30,9 +33,6 @@ from rclpy.node import Node
 from tf2_ros import LookupException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from tier4_debug_msgs.msg import Float32MultiArrayStamped
-from tier4_debug_msgs.msg import Float32Stamped
-from tier4_planning_msgs.msg import VelocityLimit
 
 REF_LINK = "map"
 SELF_LINK = "base_link"
@@ -85,7 +85,7 @@ class VelocityChecker(Node):
         )
         self.sub2 = self.create_subscription(
             Trajectory,
-            lane_drv + "/motion_planning/obstacle_avoidance_planner/trajectory",
+            lane_drv + "/motion_planning/path_optimizer/trajectory",
             self.CallBackAvoidTrajectory,
             1,
         )
@@ -115,10 +115,10 @@ class VelocityChecker(Node):
 
         # others related to velocity
         self.sub8 = self.create_subscription(
-            Engage, "/autoware/engage", self.CallBackAwEngage, profile
-        )
-        self.sub12 = self.create_subscription(
-            Engage, "/vehicle/engage", self.CallBackVehicleEngage, profile
+            OperationModeState,
+            "/control/vehicle_cmd_gate/operation_mode",
+            self.CallBackAwEngage,
+            profile,
         )
         self.sub9 = self.create_subscription(
             VelocityLimit,
@@ -218,10 +218,8 @@ class VelocityChecker(Node):
         self.printInfo()
 
     def CallBackAwEngage(self, msg):
-        self.autoware_engage = msg.engage
-
-    def CallBackVehicleEngage(self, msg):
-        self.vehicle_engage = msg.engage
+        self.autoware_engage = msg.mode == OperationModeState.AUTONOMOUS
+        self.vehicle_engage = msg.is_autoware_control_enabled
 
     def CallBackExternalVelLim(self, msg):
         self.external_v_lim = msg.max_velocity
@@ -274,13 +272,13 @@ class VelocityChecker(Node):
 
     def CallBackControlCmd(self, msg):
         # self.get_logger().info('CONTROL_CMD called')
-        self.data_arr[CONTROL_CMD] = msg.longitudinal.speed
+        self.data_arr[CONTROL_CMD] = msg.longitudinal.velocity
         self.data_arr[CONTROL_CMD_ACC] = msg.longitudinal.acceleration
         return
 
     def CallBackVehicleCmd(self, msg):
         # self.get_logger().info('VEHICLE_CMD called')
-        self.data_arr[VEHICLE_CMD] = msg.longitudinal.speed
+        self.data_arr[VEHICLE_CMD] = msg.longitudinal.velocity
         self.data_arr[VEHICLE_CMD_ACC] = msg.longitudinal.acceleration
         return
 
